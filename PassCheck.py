@@ -7,6 +7,9 @@ import threading
 import time
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.poolmanager import PoolManager
+import ssl
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings()
@@ -26,6 +29,13 @@ class Colors:
         BOLD        = '\033[1m'
         BR_COLOUR = '\033[1;37;40m'
 
+class MyAdapter(HTTPAdapter):
+    def init_poolmanager(self, connections, maxsize, block=False):
+        self.poolmanager = PoolManager(num_pools=connections,
+                                       maxsize=maxsize,
+                                       block=block,
+                                       ssl_version=ssl.PROTOCOL_TLSv1)
+
 
 def login(user_pwd):
     """
@@ -43,7 +53,9 @@ def login(user_pwd):
                'password': pwd,
                'passwordText': '',
                'isUtf8': 1}
-    r = requests.post(server, data=payload, verify=False, allow_redirects=False)
+    s = requests.Session()
+    s.mount('https://', MyAdapter())
+    r = s.post(server, data=payload, verify=False, allow_redirects=False)
     if r.status_code == 302:
         cookies = r.cookies
         cookie_num = len(cookies)
@@ -55,7 +67,9 @@ def login(user_pwd):
         print '\n[!] Wrong status code [%s]. Is the target URL valid?' % r.status_code
 
 def check_url(url):
-    r = requests.get(url, verify=False)
+    s = requests.Session()
+    s.mount('https://', MyAdapter())
+    r = s.get(url,timeout=15, verify=False)
     return r.status_code
 
 
